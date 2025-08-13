@@ -261,14 +261,16 @@ jobs:
         run: bundle install
 
       # --- CRITICAL: Make CocoaPods/xcodeproj compatible with Xcode 16.x ---
-      - name: Install CocoaPods & ensure xcodeproj >= 1.28.0 (for Xcode 16)
+      - name: Install CocoaPods & use Xcodeproj from GitHub (supports Xcode 16)
         run: |
           set -e
-          # Rydd ut gamle xcodeproj-varianter som låser CocoaPods til object version < 70
+          # Fjern gamle varianter
           sudo gem uninstall -aIx xcodeproj || true
-          # Installer en versjon som støtter Xcode 16-prosjektformat (object version 70)
-          sudo gem install xcodeproj -v ">= 1.28.0" -N
-          # Installer/oppgrader CocoaPods etter at riktig xcodeproj er på plass
+          # Installer helper for å hente gems fra GitHub
+          sudo gem install specific_install -N
+          # Installer Xcodeproj direkte fra GitHub (HEAD har støtte for object version 70)
+          sudo gem specific_install -l https://github.com/CocoaPods/Xcodeproj.git
+          # Installer CocoaPods etter at riktig xcodeproj er på plass
           sudo gem install cocoapods -N
           pod --version
           ruby -e "require 'xcodeproj'; puts 'xcodeproj ' + Xcodeproj::VERSION"
