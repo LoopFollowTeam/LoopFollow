@@ -260,19 +260,25 @@ jobs:
       - name: Install Project Dependencies
         run: bundle install
 
-      # --- NEW: CocoaPods & DGCharts update to satisfy privacy manifest requirement ---
-      - name: Install CocoaPods CLI
-        run: sudo gem install cocoapods -N && pod --version
-
-      - name: Update Charts/DGCharts pod to latest with privacy manifest
+      # --- CRITICAL: Make CocoaPods/xcodeproj compatible with Xcode 16.x ---
+      - name: Install CocoaPods & update xcodeproj (for Xcode 16 project format)
         run: |
           set -e
-          # Work at repo root (Podfile is here)
-          if grep -q "pod ['\"]DGCharts['\"]" Podfile; then
+          sudo gem install cocoapods -N
+          # Ensure xcodeproj gem understands object version 70 (Xcode 16 project format)
+          sudo gem update xcodeproj -N || sudo gem install xcodeproj -N
+          pod --version
+          ruby -e "require 'xcodeproj'; puts 'xcodeproj ' + Xcodeproj::VERSION"
+
+      # Update Charts/DGCharts to version that contains Privacy Manifest
+      - name: Update Charts/DGCharts pod
+        run: |
+          set -e
+          if grep -qE "pod ['\"]DGCharts['\"]" Podfile; then
             echo "Found DGCharts in Podfile – updating…"
             pod repo update
             pod update DGCharts
-          elif grep -q "pod ['\"]Charts['\"]" Podfile; then
+          elif grep -qE "pod ['\"]Charts['\"]" Podfile; then
             echo "Found Charts in Podfile – updating…"
             pod repo update
             pod update Charts
@@ -282,7 +288,7 @@ jobs:
 
       - name: Install Pods
         run: pod install
-      # --- END NEW ---
+      # --- END CRITICAL ---
 
       # Sync the GitHub runner clock (workaround)
       - name: Sync clock
