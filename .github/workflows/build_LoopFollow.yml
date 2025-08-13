@@ -11,6 +11,7 @@ env:
   TARGET_BRANCH: ${{ github.ref_name }}
   ALIVE_BRANCH_MAIN: alive-main
   ALIVE_BRANCH_DEV: alive-dev
+  GH_TOKEN: ${{ secrets.GH_PAT }}
 
 jobs:
   # Checks if Distribution certificate is present and valid, optionally nukes and
