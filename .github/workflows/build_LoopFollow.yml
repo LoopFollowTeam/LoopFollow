@@ -2,19 +2,13 @@ name: 4. Build Loop Follow
 run-name: Build Loop Follow (${{ github.ref_name }})
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 
-  ## Remove the "#" sign from the beginning of the line below to get automated builds on push (code changes in your repository)
-  #push:
-
-  schedule:
-    # avoid starting an action at xx:00 when GitHub resources are impacted
-    - cron: "17 12 * * 3" # Checks for updates at 12:17 UTC every Wednesday
-    - cron: "17 10 1 * *" # Builds the app on the 1st of every month at 10:17 UTC
-
-env:  
+env:
   UPSTREAM_REPO: loopandlearn/LoopFollow
-  UPSTREAM_BRANCH: ${{ github.ref_name }} # branch on upstream repository to sync from (replace with specific branch name if needed)
-  TARGET_BRANCH: ${{ github.ref_name }} # target branch on fork to be kept in sync, and target branch on upstream to be kept alive (replace with specific branch name if needed)
+  UPSTREAM_BRANCH: ${{ github.ref_name }}
+  TARGET_BRANCH: ${{ github.ref_name }}
   ALIVE_BRANCH_MAIN: alive-main
   ALIVE_BRANCH_DEV: alive-dev
 
