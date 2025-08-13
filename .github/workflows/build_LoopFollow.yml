@@ -42,11 +42,11 @@ jobs:
 
           if [[ $PERMISSIONS =~ "workflow" || $PERMISSIONS == "" ]]; then
             echo "GH_PAT holds workflow permissions or is fine-grained PAT."
-            echo "has_permission=true" >> $GITHUB_OUTPUT # Set WORKFLOW_PERMISSION to false.
+            echo "has_permission=true" >> $GITHUB_OUTPUT
           else 
             echo "GH_PAT lacks workflow permissions."
             echo "Automated build features will be skipped!"
-            echo "has_permission=false" >> $GITHUB_OUTPUT # Set WORKFLOW_PERMISSION to false.
+            echo "has_permission=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Check for alive branches
@@ -143,7 +143,6 @@ jobs:
           upstream_sync_branch: ${{ env.UPSTREAM_BRANCH }}
           upstream_sync_repo: ${{ env.UPSTREAM_REPO }}
 
-      # Display a sample message based on the sync output var 'has_new_commits'
       - name: New commits found
         if: |
           needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
@@ -162,16 +161,9 @@ jobs:
           echo ${{ steps.sync.outputs.has_new_commits }}
           echo "NEW_COMMITS=${{ steps.sync.outputs.has_new_commits }}" >> $GITHUB_OUTPUT
 
-      # Keep repository "alive": add empty commits to ALIVE_BRANCH after "time_elapsed" days of inactivity to avoid inactivation of scheduled workflows
       - name: Keep alive
         run: |
           echo "Keep Alive is no longer available" 
-      #  if: |
-      #    needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
-      #    (vars.SCHEDULED_BUILD != 'false' || vars.SCHEDULED_SYNC != 'false')
-      #  uses: gautamkrishnar/keepalive-workflow@v1 # using the workflow with default settings
-      #  with:
-      #    time_elapsed: 20 # Time elapsed from the previous commit to trigger a new automated commit (in days)
 
       - name: Show scheduled build configuration message
         if: needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION != 'true'
@@ -180,7 +172,7 @@ jobs:
           echo "You have not yet configured the scheduled sync and build for LoopFollow's browser build." >> $GITHUB_STEP_SUMMARY
           echo "Synchronizing your fork of <code>LoopFollow</code> with the upstream repository <code>loopandlearn/LoopFollow</code> will be skipped." >> $GITHUB_STEP_SUMMARY
           echo "If you want to enable automatic builds and updates for your LoopFollow, please follow the instructions \
-              under the following path <code>LoopFollow/fastlane/testflight.md</code>." >> $GITHUB_STEP_SUMMARY
+              under the following path <code>LoopFollow/fastlane/testflight.md</code>."
   
   # Builds LoopFollow
   build:
@@ -197,8 +189,16 @@ jobs:
         (vars.SCHEDULED_SYNC != 'false' && needs.check_latest_from_upstream.outputs.NEW_COMMITS == 'true' )
       )
     steps:
-      - name: Select Xcode version
-        run: "sudo xcode-select --switch /Applications/Xcode_16.2.app/Contents/Developer"
+      - name: Select Xcode (prefer 16.4)
+        run: |
+          if [ -d /Applications/Xcode_16.4.app ]; then
+            sudo xcode-select -s /Applications/Xcode_16.4.app
+          elif [ -d /Applications/Xcode_16.3.app ]; then
+            sudo xcode-select -s /Applications/Xcode_16.3.app
+          else
+            sudo xcode-select -s /Applications/Xcode_16.2.app
+          fi
+          xcodebuild -version
       
       - name: Checkout Repo for syncing
         if: |
@@ -222,7 +222,6 @@ jobs:
           upstream_sync_branch: ${{ env.UPSTREAM_BRANCH }}
           upstream_sync_repo: ${{ env.UPSTREAM_REPO }}
 
-      # Display a sample message based on the sync output var 'has_new_commits'
       - name: New commits found
         if: |
           needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
