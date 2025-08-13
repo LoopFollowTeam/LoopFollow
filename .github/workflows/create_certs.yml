@@ -3,9 +3,14 @@ run-name: Create Certificates (${{ github.ref_name }})
 
 on: [workflow_call, workflow_dispatch]
 
+# Viktig: gir jobben write-tilgang til repo (brukes av verktøy som pushet refs/innhold)
+permissions:
+  contents: write
+
 env:
   TEAMID: ${{ secrets.TEAMID }}
   GH_PAT: ${{ secrets.GH_PAT }}
+  GH_TOKEN: ${{ secrets.GH_PAT }}   # <- sørger for at git/gh bruker PAT med write
   MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
   FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
   FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
