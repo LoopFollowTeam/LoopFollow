@@ -1,7 +1,9 @@
 name: 4. Build Loop Follow
 run-name: Build Loop Follow (${{ github.ref_name }})
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: write
 
@@ -16,10 +18,10 @@ env:
 jobs:
   # Checks if Distribution certificate is present and valid, optionally nukes and
   # creates new certs if the repository variable ENABLE_NUKE_CERTS == 'true'
-  check_certs: 
-      name: Check certificates
-      uses: ./.github/workflows/create_certs.yml
-      secrets: inherit
+  check_certs:
+    name: Check certificates
+    uses: ./.github/workflows/create_certs.yml
+    secrets: inherit
 
   # Checks if GH_PAT holds workflow permissions
   # Checks for existence of alive branch; if non-existent creates it
@@ -39,7 +41,6 @@ jobs:
           TOKEN_TO_CHECK: ${{ secrets.GH_PAT }}
         run: |
           PERMISSIONS=$(curl -sS -f -I -H "Authorization: token ${{ env.TOKEN_TO_CHECK }}" https://api.github.com | grep ^x-oauth-scopes: | cut -d' ' -f2-);
-
           if [[ $PERMISSIONS =~ "workflow" || $PERMISSIONS == "" ]]; then
             echo "GH_PAT holds workflow permissions or is fine-grained PAT."
             echo "has_permission=true" >> $GITHUB_OUTPUT
@@ -69,10 +70,8 @@ jobs:
         run: |
           # Get ref for UPSTREAM_REPO:main
           SHA_MAIN=$(curl -sS -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/git/refs/heads/main | jq -r '.object.sha')
-
           # Get ref for UPSTREAM_REPO:dev
           SHA_DEV=$(curl -sS -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/git/refs/heads/dev | jq -r '.object.sha')
-
           # Create alive-main branch in LoopFollow fork based on UPSTREAM_REPO:main
           gh api \
             --method POST \
@@ -81,7 +80,6 @@ jobs:
             /repos/${{ github.repository_owner }}/LoopFollow/git/refs \
             -f ref='refs/heads/alive-main' \
             -f sha=$SHA_MAIN
-
           # Create alive-dev branch in LoopFollow fork based on UPSTREAM_REPO:dev
           gh api \
             --method POST \
@@ -131,7 +129,7 @@ jobs:
           ref: ${{ steps.check_branch.outputs.ALIVE_BRANCH }}
 
       - name: Sync upstream changes
-        if: | # do not run the upstream sync action on the upstream repository
+        if: |
           needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'loopandlearn' && steps.check_branch.outputs.ABORT_SYNC == 'false'
         id: sync
@@ -171,9 +169,8 @@ jobs:
           echo "### :calendar: Scheduled Sync and Build Disabled :mobile_phone_off:" >> $GITHUB_STEP_SUMMARY
           echo "You have not yet configured the scheduled sync and build for LoopFollow's browser build." >> $GITHUB_STEP_SUMMARY
           echo "Synchronizing your fork of <code>LoopFollow</code> with the upstream repository <code>loopandlearn/LoopFollow</code> will be skipped." >> $GITHUB_STEP_SUMMARY
-          echo "If you want to enable automatic builds and updates for your LoopFollow, please follow the instructions \
-              under the following path <code>LoopFollow/fastlane/testflight.md</code>."
-  
+          echo "If you want to enable automatic builds and updates for your LoopFollow, please follow the instructions under the following path <code>LoopFollow/fastlane/testflight.md</code>."
+
   # Builds LoopFollow
   build:
     name: Build
@@ -181,8 +178,7 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: write
-    if:
-      | # runs if started manually, or if sync schedule is set and enabled and scheduled on the first Saturday each month, or if sync schedule is set and enabled and new commits were found
+    if: |
       github.event_name == 'workflow_dispatch' ||
       (needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
         (vars.SCHEDULED_BUILD != 'false' && github.event.schedule == '17 10 1 * *') ||
@@ -199,7 +195,7 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_16.2.app
           fi
           xcodebuild -version
-      
+
       - name: Checkout Repo for syncing
         if: |
           needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
@@ -210,7 +206,7 @@ jobs:
           ref: ${{ env.TARGET_BRANCH }}
 
       - name: Sync upstream changes
-        if: | # do not run the upstream sync action on the upstream repository
+        if: |
           needs.check_alive_and_permissions.outputs.WORKFLOW_PERMISSION == 'true' &&
           vars.SCHEDULED_SYNC != 'false' && github.repository_owner != 'loopandlearn' && needs.check_latest_from_upstream.outputs.ABORT_SYNC == 'false'
         id: sync
@@ -260,11 +256,35 @@ jobs:
             exit 1
           fi
 
-      # Install project dependencies
+      # Install project dependencies (Ruby gems)
       - name: Install Project Dependencies
         run: bundle install
 
-      # Sync the GitHub runner clock with the Windows time server (workaround as suggested in https://github.com/actions/runner/issues/2996)
+      # --- NEW: CocoaPods & DGCharts update to satisfy privacy manifest requirement ---
+      - name: Install CocoaPods CLI
+        run: sudo gem install cocoapods -N && pod --version
+
+      - name: Update Charts/DGCharts pod to latest with privacy manifest
+        run: |
+          set -e
+          # Work at repo root (Podfile is here)
+          if grep -q "pod ['\"]DGCharts['\"]" Podfile; then
+            echo "Found DGCharts in Podfile – updating…"
+            pod repo update
+            pod update DGCharts
+          elif grep -q "pod ['\"]Charts['\"]" Podfile; then
+            echo "Found Charts in Podfile – updating…"
+            pod repo update
+            pod update Charts
+          else
+            echo "::notice::No DGCharts/Charts pod found in Podfile — skipping pod update step."
+          fi
+
+      - name: Install Pods
+        run: pod install
+      # --- END NEW ---
+
+      # Sync the GitHub runner clock (workaround)
       - name: Sync clock
         run: sudo sntp -sS time.windows.com
 
