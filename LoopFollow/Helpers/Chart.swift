@@ -3,12 +3,12 @@
 // Created by Jon Fawcett.
 
 import DGCharts
-import Foundation
+import UIKit // evt. CoreGraphics
 
 final class OverrideFillFormatter: FillFormatter {
-    func getFillLinePosition(dataSet: Charts.LineChartDataSetProtocol, dataProvider _: Charts.LineChartDataProvider) -> CGFloat {
+    func getFillLinePosition(dataSet: LineChartDataSetProtocol,
+                             dataProvider _: LineChartDataProvider) -> CGFloat {
         return CGFloat(dataSet.entryForIndex(0)!.y)
-        // return 375
     }
 }
 
