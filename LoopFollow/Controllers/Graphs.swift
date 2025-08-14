@@ -619,8 +619,8 @@ extension MainViewController {
         BGChart.marker = nil
         BGChart.drawMarkers = false
 
-        smallChart.marker = nil
-        smallChart.drawMarkers = false
+        BGChartFull.marker = nil
+        BGChartFull.drawMarkers = false
 
         // Clear limit lines so they don't add multiples when changing the settings
         BGChart.rightAxis.removeAllLimitLines()
