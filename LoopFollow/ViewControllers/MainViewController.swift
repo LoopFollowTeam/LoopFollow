@@ -127,15 +127,19 @@ override func viewDidLoad() {
 
     // --- Tabell/infovisning ---
     synchronizeInfoTypes()
-    infoTable.dataSource = self
-    infoTable.rowHeight = 21
-    infoTable.tableFooterView = UIView(frame: .zero)
-    infoTable.bounces = false
-    infoTable.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
-    infoManager = InfoManager(tableView: infoTable)
+    if let table = infoTable {
+        table.dataSource = self
+        table.rowHeight = 21
+        table.tableFooterView = UIView(frame: .zero)
+        table.bounces = false
+        table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
+        infoManager = InfoManager(tableView: table)
+    } else {
+        LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
+    }
 
     // --- Layout ---
-    smallGraphHeightConstraint.constant = CGFloat(Storage.shared.smallGraphHeight.value)
+    smallGraphHeightConstraint?.constant = CGFloat(Storage.shared.smallGraphHeight.value)
     view.layoutIfNeeded()
 
     // --- Dexcom Share-klient ---
@@ -161,60 +165,69 @@ override func viewDidLoad() {
     BGChart.delegate     = self
     BGChartFull.delegate = self
     BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
-    statsView.isHidden   = !Storage.shared.showStats.value
+    statsView?.isHidden  = !Storage.shared.showStats.value
 
     if Storage.shared.forceDarkMode.value {
         overrideUserInterfaceStyle = .dark
         tabBarController?.overrideUserInterfaceStyle = .dark
     }
 
-    // --- Start periodiske jobber ---
-    scheduleAllTasks()
-
-    // --- Pull-to-refresh rundt BGText ---
-    refreshScrollView = UIScrollView()
-    refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
-    refreshScrollView.alwaysBounceVertical = true
-    view.addSubview(refreshScrollView)
-    NSLayoutConstraint.activate([
-        refreshScrollView.leadingAnchor.constraint(equalTo: BGText.leadingAnchor),
-        refreshScrollView.trailingAnchor.constraint(equalTo: BGText.trailingAnchor),
-        refreshScrollView.topAnchor.constraint(equalTo: BGText.topAnchor),
-        refreshScrollView.bottomAnchor.constraint(equalTo: BGText.bottomAnchor),
-    ])
-    refreshControl = UIRefreshControl()
-    refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
-    refreshScrollView.addSubview(refreshControl)
-    refreshScrollView.delegate = self
-
-    // --- Notifikasjoner ---
+    // --- Lifecycle hooks / oppfrisking ---
     NotificationCenter.default.addObserver(
         self,
         selector: #selector(refresh),
         name: UIApplication.didBecomeActiveNotification,
         object: nil
     )
-    NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(refresh),
-        name: NSNotification.Name("refresh"),
-        object: nil
-    )
+
+    // Start med korrekt vis/skjul-tilstand
+    showHideNSDetails()
+
+    // --- Start periodiske jobber ---
+    scheduleAllTasks()
+
+    // --- Pull-to-refresh rundt BGText ---
+    if let bgLabel = BGText {
+        refreshScrollView = UIScrollView()
+        refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
+        refreshScrollView.alwaysBounceVertical = true
+        view.addSubview(refreshScrollView)
+
+        NSLayoutConstraint.activate([
+            refreshScrollView.leadingAnchor.constraint(equalTo: bgLabel.leadingAnchor),
+            refreshScrollView.trailingAnchor.constraint(equalTo: bgLabel.trailingAnchor),
+            refreshScrollView.topAnchor.constraint(equalTo: bgLabel.topAnchor),
+            refreshScrollView.bottomAnchor.constraint(equalTo: bgLabel.bottomAnchor),
+        ])
+    } else {
+        LogManager.shared.log(category: .general, message: "BGText outlet is nil; skip scroll wrapper", isDebug: true)
+        // Opprett likevel slik at resten fungerer
+        refreshScrollView = UIScrollView()
+        refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(refreshScrollView)
+    }
+
+    refreshControl = UIRefreshControl()
+    refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
+    refreshScrollView.addSubview(refreshControl)
+    refreshScrollView.delegate = self
+    NotificationCenter.default.addObserver(self, selector: #selector(refresh),
+                                           name: NSNotification.Name("refresh"), object: nil)
 
     // --- Bind observables til labels ---
     Observable.shared.bgText.$value
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] in self?.BGText.text = $0 }
+        .sink { [weak self] in self?.BGText?.text = $0 }
         .store(in: &cancellables)
 
     Observable.shared.directionText.$value
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] in self?.DirectionText.text = $0 }
+        .sink { [weak self] in self?.DirectionText?.text = $0 }
         .store(in: &cancellables)
 
     Observable.shared.deltaText.$value
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] in self?.DeltaText.text = $0 }
+        .sink { [weak self] in self?.DeltaText?.text = $0 }
         .store(in: &cancellables)
 
     // --- Ved alarm: hopp til Snoozer-fanen ---
@@ -236,7 +249,7 @@ override func viewDidLoad() {
 
     Storage.shared.showStats.$value
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in self?.statsView.isHidden = !Storage.shared.showStats.value }
+        .sink { [weak self] _ in self?.statsView?.isHidden = !Storage.shared.showStats.value }
         .store(in: &cancellables)
 
     Storage.shared.useIFCC.$value
@@ -286,8 +299,7 @@ override func viewDidLoad() {
     updateQuickActions()
     speechSynthesizer.delegate = self
 
-    // Start med korrekt vis/skjul-tilstand + første fetch
-    showHideNSDetails()
+    // Hent første gang
     refresh()
 }
     private func setupTabBar() {
