@@ -2,7 +2,7 @@
 // Chart.swift
 // Created by Jon Fawcett.
 
-import Charts
+import DGCharts
 import Foundation
 
 final class OverrideFillFormatter: FillFormatter {
