@@ -616,8 +616,21 @@ extension MainViewController {
         data.setValueFont(UIFont.systemFont(ofSize: 12))
 
         // Add marker popups for bolus and carbs
-        let marker = PillMarker(color: .secondarySystemBackground, font: UIFont.boldSystemFont(ofSize: 14), textColor: .label)
+        let marker = PillMarker(
+            color: .secondarySystemBackground,
+            font: UIFont.boldSystemFont(ofSize: 14),
+            textColor: .label
+        )
         BGChart.marker = marker
+        BGChart.drawMarkers = true
+
+        let smallMarker = PillMarker(
+            color: .secondarySystemBackground,
+            font: UIFont.boldSystemFont(ofSize: 14),
+            textColor: .label
+        )
+        smallChart.marker = smallMarker
+        smallChart.drawMarkers = true
 
         // Clear limit lines so they don't add multiples when changing the settings
         BGChart.rightAxis.removeAllLimitLines()
