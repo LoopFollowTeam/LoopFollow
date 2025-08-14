@@ -281,18 +281,18 @@ jobs:
 
       # Update Charts/DGCharts to version that contains Privacy Manifest
       - name: Update Charts/DGCharts pod
+        shell: bash
         run: |
           set -e
-          if grep -qE "pod ['\"]DGCharts['\"]" Podfile; then
-            echo "Found DGCharts in Podfile – updating…"
+          # Hvis DGCharts ikke finnes i Podfile.lock enda: installer (første gang).
+          if [ -f "Podfile.lock" ] && grep -q "DGCharts" Podfile.lock; then
+            echo "DGCharts present in Podfile.lock — updating…"
             pod repo update
             pod update DGCharts
-          elif grep -qE "pod ['\"]Charts['\"]" Podfile; then
-            echo "Found Charts in Podfile – updating…"
-            pod repo update
-            pod update Charts
           else
-            echo "::notice::No DGCharts/Charts pod found in Podfile — skipping pod update step."
+            echo "DGCharts not in Podfile.lock — installing…"
+            pod repo update
+            pod install
           fi
 
       - name: Install Pods
