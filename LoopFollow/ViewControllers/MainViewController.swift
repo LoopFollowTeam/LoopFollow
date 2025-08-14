@@ -63,7 +63,7 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     var lastCalendarWriteAttemptTime: TimeInterval = 0
 
     // Info Table Setup
-    var infoManager: InfoManager!
+    var infoManager: InfoManager?
     var profileManager = ProfileManager.shared
 
     var bgData: [ShareGlucoseData] = []
@@ -141,8 +141,8 @@ override func viewDidLoad() {
         table.rowHeight = 21
         table.tableFooterView = UIView(frame: .zero)
         table.bounces = false
-        // (fjernet) table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
-        infoManager = InfoManager(tableView: table)
+        // table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
+        // Viktig: IKKE opprett infoManager her – vi gjør det i viewDidAppear første gang
     } else {
         LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
     }
@@ -151,13 +151,7 @@ override func viewDidLoad() {
     smallGraphHeightConstraint?.constant = CGFloat(Storage.shared.smallGraphHeight.value)
     view.layoutIfNeeded()
 
-    // --- Dexcom Share-klient ---
-    let shareUserName = Storage.shared.shareUserName.value
-    let sharePassword = Storage.shared.sharePassword.value
-    let shareServer = Storage.shared.shareServer.value == "US"
-        ? KnownShareServers.US.rawValue
-        : KnownShareServers.NON_US.rawValue
-    dexShare = ShareClient(username: shareUserName, password: sharePassword, shareServer: shareServer)
+    // Viktig: IKKE opprett dexShare her – vi gjør det i viewDidAppear første gang
 
     // --- Migreringer (idempotent) ---
     loadDebugData()
@@ -315,12 +309,29 @@ override func viewDidLoad() {
 
 override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
+
+    // Opprett dyre/avhengige ting første gang
+    if dexShare == nil {
+        let shareUserName = Storage.shared.shareUserName.value
+        let sharePassword = Storage.shared.sharePassword.value
+        let shareServer = Storage.shared.shareServer.value == "US"
+            ? KnownShareServers.US.rawValue
+            : KnownShareServers.NON_US.rawValue
+        dexShare = ShareClient(username: shareUserName, password: sharePassword, shareServer: shareServer)
+    }
+
+    if infoManager == nil, let table = infoTable {
+        infoManager = InfoManager(tableView: table)
+        table.reloadData()
+    }
+
     guard !didRunInitialUIOnce else { return }
     didRunInitialUIOnce = true
     configureTabsIfNeeded()
     showHideNSDetails()
     refresh()
 }
+
     private func setupTabBar() {
         guard let tabBarController = tabBarController else { return }
 
