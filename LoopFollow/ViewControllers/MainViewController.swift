@@ -141,7 +141,7 @@ override func viewDidLoad() {
         table.rowHeight = 21
         table.tableFooterView = UIView(frame: .zero)
         table.bounces = false
-        table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
+        // (fjernet) table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
         infoManager = InfoManager(tableView: table)
     } else {
         LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
