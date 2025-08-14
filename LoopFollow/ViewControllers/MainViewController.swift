@@ -168,18 +168,6 @@ override func viewDidLoad() {
         tabBarController?.overrideUserInterfaceStyle = .dark
     }
 
-    // --- Lifecycle hooks / oppfrisking ---
-    NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(refresh),
-        name: UIApplication.didBecomeActiveNotification,
-        object: nil
-    )
-
-    // Start med korrekt vis/skjul-tilstand
-    showHideNSDetails()
-}
-
     // --- Start periodiske jobber ---
     scheduleAllTasks()
 
@@ -198,8 +186,20 @@ override func viewDidLoad() {
     refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
     refreshScrollView.addSubview(refreshControl)
     refreshScrollView.delegate = self
-    NotificationCenter.default.addObserver(self, selector: #selector(refresh),
-                                           name: NSNotification.Name("refresh"), object: nil)
+
+    // --- Notifikasjoner ---
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(refresh),
+        name: UIApplication.didBecomeActiveNotification,
+        object: nil
+    )
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(refresh),
+        name: NSNotification.Name("refresh"),
+        object: nil
+    )
 
     // --- Bind observables til labels ---
     Observable.shared.bgText.$value
@@ -286,7 +286,8 @@ override func viewDidLoad() {
     updateQuickActions()
     speechSynthesizer.delegate = self
 
-    // Hent første gang
+    // Start med korrekt vis/skjul-tilstand + første fetch
+    showHideNSDetails()
     refresh()
 }
     private func setupTabBar() {
