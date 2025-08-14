@@ -256,19 +256,19 @@ jobs:
             exit 1
           fi
 
-      # --- CRITICAL: Make CocoaPods/xcodeproj compatible with Xcode 16.x ---
-      - name: Prepare Ruby gems sandbox (isolated GEM_HOME/GEM_PATH)
-        run: |
-          set -e
-          echo "GEM_HOME=$HOME/.rubysandbox" >> $GITHUB_ENV
-          echo "GEM_PATH=$HOME/.rubysandbox" >> $GITHUB_ENV
-          echo "$HOME/.rubysandbox/bin" >> $GITHUB_PATH
+      # -------- NEW: Pin Ruby & Bundler so "bundle" always works --------
+      - name: Set up Ruby 3.3 + Bundler 2.7.1
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler: '2.7.1'
+          bundler-cache: true
+      # ------------------------------------------------------------------
 
+      # Install CocoaPods & Xcodeproj (from GitHub, supports Xcode 16)
       - name: Install CocoaPods & Xcodeproj (from GitHub, supports Xcode 16)
         run: |
           set -e
-          # Bruk vår sandbox (unngå system-/Homebrew-gems)
-          mkdir -p "$GEM_HOME"
           gem install specific_install -N
           gem specific_install -l https://github.com/CocoaPods/Xcodeproj.git
           gem install cocoapods -N
@@ -280,7 +280,6 @@ jobs:
         shell: bash
         run: |
           set -e
-          # Hvis DGCharts ikke finnes i Podfile.lock enda: installer (første gang).
           if [ -f "Podfile.lock" ] && grep -q "DGCharts" Podfile.lock; then
             echo "DGCharts present in Podfile.lock — updating…"
             pod repo update
@@ -293,20 +292,10 @@ jobs:
 
       - name: Install Pods
         run: pod install
-      # --- END CRITICAL ---
 
       # Sync the GitHub runner clock (workaround)
       - name: Sync clock
         run: sudo sntp -sS time.windows.com
-      - name: Bundle install into sandbox (for Fastlane)
-        shell: bash
-        run: |
-          set -e
-          # Sørg for at Bundler bruker samme sandbox som GEM_HOME/GEM_PATH
-          bundle config set path "$HOME/.rubysandbox/bundler"
-          # (valgfritt, men kjapt) hopp over dev/test
-          bundle config set without 'development test'
-          bundle install --jobs 4 --retry 3
 
       # Build signed LoopFollow IPA file
       - name: Fastlane Build & Archive
