@@ -63,7 +63,7 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     var lastCalendarWriteAttemptTime: TimeInterval = 0
 
     // Info Table Setup
-    var infoManager: InfoManager?
+    var infoManager: InfoManager!
     var profileManager = ProfileManager.shared
 
     var bgData: [ShareGlucoseData] = []
@@ -142,7 +142,9 @@ override func viewDidLoad() {
         table.tableFooterView = UIView(frame: .zero)
         table.bounces = false
         // table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
-        // Viktig: IKKE opprett infoManager her – vi gjør det i viewDidAppear første gang
+
+        // Viktig: opprett infoManager her slik at andre steder i koden kan bruke den uten optional-feil
+        infoManager = InfoManager(tableView: table)
     } else {
         LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
     }
