@@ -122,8 +122,17 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     // Kjør tab-oppsett kun én gang etter at UI er synlig (hindrer reentrans i viewDidLoad)
     private var didConfigureTabsOnce = false
 
+private var didRunInitialUIOnce = false
+
 override func viewDidLoad() {
     super.viewDidLoad()
+
+    // Dump hvilke outlets som faktisk er koblet
+    LogManager.shared.log(
+        category: .general,
+        message: "Outlets => infoTable:\(infoTable != nil) BGText:\(BGText != nil) DirectionText:\(DirectionText != nil) DeltaText:\(DeltaText != nil) statsView:\(statsView != nil) smallGraphHeightConstraint:\(smallGraphHeightConstraint != nil) BGChart:\(BGChart != nil) BGChartFull:\(BGChartFull != nil)",
+        isDebug: true
+    )
 
     // --- Tabell/infovisning ---
     synchronizeInfoTypes()
@@ -162,10 +171,10 @@ override func viewDidLoad() {
     }
 
     // --- Grunnleggende UI-tilstand ---
-    BGChart.delegate     = self
-    BGChartFull.delegate = self
-    BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
-    statsView?.isHidden  = !Storage.shared.showStats.value
+    BGChart?.delegate     = self
+    BGChartFull?.delegate = self
+    BGChartFull?.isHidden = !Storage.shared.showSmallGraph.value
+    statsView?.isHidden   = !Storage.shared.showStats.value
 
     if Storage.shared.forceDarkMode.value {
         overrideUserInterfaceStyle = .dark
@@ -179,9 +188,6 @@ override func viewDidLoad() {
         name: UIApplication.didBecomeActiveNotification,
         object: nil
     )
-
-    // Start med korrekt vis/skjul-tilstand
-    showHideNSDetails()
 
     // --- Start periodiske jobber ---
     scheduleAllTasks()
@@ -201,7 +207,6 @@ override func viewDidLoad() {
         ])
     } else {
         LogManager.shared.log(category: .general, message: "BGText outlet is nil; skip scroll wrapper", isDebug: true)
-        // Opprett likevel slik at resten fungerer
         refreshScrollView = UIScrollView()
         refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(refreshScrollView)
@@ -259,7 +264,7 @@ override func viewDidLoad() {
 
     Storage.shared.showSmallGraph.$value
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in self?.BGChartFull.isHidden = !Storage.shared.showSmallGraph.value }
+        .sink { [weak self] _ in self?.BGChartFull?.isHidden = !Storage.shared.showSmallGraph.value }
         .store(in: &cancellables)
 
     Storage.shared.screenlockSwitchState.$value
@@ -284,7 +289,6 @@ override func viewDidLoad() {
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
-            // Ikke rør tabs før etter første skjermvisning
             guard let self = self, self.didConfigureTabsOnce else { return }
             self.setupTabBar()
         }
@@ -298,9 +302,16 @@ override func viewDidLoad() {
     // --- Diverse ---
     updateQuickActions()
     speechSynthesizer.delegate = self
+    // Ikke kall showHideNSDetails()/refresh() her.
+}
 
-    // Hent første gang
-    refresh()
+override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+    if !didRunInitialUIOnce {
+        didRunInitialUIOnce = true
+        showHideNSDetails()
+        refresh()
+    }
 }
     private func setupTabBar() {
         guard let tabBarController = tabBarController else { return }
