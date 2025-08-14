@@ -120,7 +120,10 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     private var cancellables = Set<AnyCancellable>()
 
     override func viewDidLoad() {
-        super.viewDidLoad()
+    super.viewDidLoad()
+    // TEMP: Deaktivert alt annet for å unngå crash på oppstart.
+    // Vi snevrer inn årsaken etter at appen starter på TF.
+        }
 
         loadDebugData()
 
