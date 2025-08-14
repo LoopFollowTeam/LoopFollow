@@ -867,54 +867,67 @@ private func configureTabsIfNeeded() {
         }
     }
 
-    private func synchronizeInfoTypes() {
-        var sortArray = Storage.shared.infoSort.value
-        var visibleArray = Storage.shared.infoVisible.value
+private func synchronizeInfoTypes() {
+    var sortArray = Storage.shared.infoSort.value
+    var visibleArray = Storage.shared.infoVisible.value
 
-        // Current valid indices based on InfoType
-        let currentValidIndices = InfoType.allCases.map { $0.rawValue }
+    // Current valid indices based on InfoType
+    let currentValidIndices = InfoType.allCases.map { $0.rawValue }
 
-        // Add missing indices to sortArray
-        for index in currentValidIndices {
-            if !sortArray.contains(index) {
-                sortArray.append(index)
-                // print("Added missing index \(index) to sortArray")
-            }
+    // Add missing indices to sortArray
+    for index in currentValidIndices where !sortArray.contains(index) {
+        sortArray.append(index)
+    }
+
+    // Remove deprecated indices
+    sortArray = sortArray.filter { currentValidIndices.contains($0) }
+
+    // Ensure visibleArray is updated with new entries
+    if visibleArray.count < currentValidIndices.count {
+        for i in visibleArray.count ..< currentValidIndices.count {
+            visibleArray.append(InfoType(rawValue: i)?.defaultVisible ?? false)
         }
+    }
 
-        // Remove deprecated indices
-        sortArray = sortArray.filter { currentValidIndices.contains($0) }
+    // Trim excess elements if there are more than needed
+    if visibleArray.count > currentValidIndices.count {
+        visibleArray = Array(visibleArray.prefix(currentValidIndices.count))
+    }
 
-        // Ensure visibleArray is updated with new entries
-        if visibleArray.count < currentValidIndices.count {
-            for i in visibleArray.count ..< currentValidIndices.count {
-                visibleArray.append(InfoType(rawValue: i)?.defaultVisible ?? false)
-                // print("Added default visibility for new index \(i)")
-            }
-        }
+    Storage.shared.infoSort.value = sortArray
+    Storage.shared.infoVisible.value = visibleArray
+} // ← slutt på func synchronizeInfoTypes()
 
-        // Trim excess elements if there are more than needed
-        if visibleArray.count > currentValidIndices.count {
-            visibleArray = Array(visibleArray.prefix(currentValidIndices.count))
-            // print("Trimmed visibleArray to match current valid indices")
-        }
+} // ← slutt på class MainViewController
 
-Storage.shared.infoSort.value = sortArray
-Storage.shared.infoVisible.value = visibleArray
-}
+// MARK: - AVSpeechSynthesizerDelegate
 extension MainViewController: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
         let appState = UIApplication.shared.applicationState
         let isSilentTuneMode = Storage.shared.backgroundRefreshType.value == .silentTune
 
         if isSilentTuneMode, appState == .background {
-            LogManager.shared.log(category: .general, message: "Silent tune active in background; not deactivating session.", isDebug: true)
+            LogManager.shared.log(
+                category: .general,
+                message: "Silent tune active in background; not deactivating session.",
+                isDebug: true
+            )
         } else {
             do {
-                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-                LogManager.shared.log(category: .general, message: "Audio session deactivated after speech.", isDebug: true)
+                try AVAudioSession.sharedInstance().setActive(
+                    false,
+                    options: .notifyOthersOnDeactivation
+                )
+                LogManager.shared.log(
+                    category: .general,
+                    message: "Audio session deactivated after speech.",
+                    isDebug: true
+                )
             } catch {
-                LogManager.shared.log(category: .alarm, message: "Failed to deactivate audio session: \(error)")
+                LogManager.shared.log(
+                    category: .alarm,
+                    message: "Failed to deactivate audio session: \(error)"
+                )
             }
         }
     }
