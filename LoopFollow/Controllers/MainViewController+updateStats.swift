@@ -2,7 +2,7 @@
 // MainViewController+updateStats.swift
 // Created by Jon Fawcett.
 
-import Charts
+import DGCharts
 import Foundation
 import UIKit
 
