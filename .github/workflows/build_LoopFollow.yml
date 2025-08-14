@@ -256,10 +256,6 @@ jobs:
             exit 1
           fi
 
-      # Install project dependencies (Ruby gems)
-      - name: Install Project Dependencies
-        run: bundle install
-
       # --- CRITICAL: Make CocoaPods/xcodeproj compatible with Xcode 16.x ---
       - name: Prepare Ruby gems sandbox (isolated GEM_HOME/GEM_PATH)
         run: |
@@ -302,6 +298,15 @@ jobs:
       # Sync the GitHub runner clock (workaround)
       - name: Sync clock
         run: sudo sntp -sS time.windows.com
+      - name: Bundle install into sandbox (for Fastlane)
+        shell: bash
+        run: |
+          set -e
+          # Sørg for at Bundler bruker samme sandbox som GEM_HOME/GEM_PATH
+          bundle config set path "$HOME/.rubysandbox/bundler"
+          # (valgfritt, men kjapt) hopp over dev/test
+          bundle config set without 'development test'
+          bundle install --jobs 4 --retry 3
 
       # Build signed LoopFollow IPA file
       - name: Fastlane Build & Archive
