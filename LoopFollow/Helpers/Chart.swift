@@ -1,17 +1,20 @@
+// LoopFollow
+// Chart.swift
+
 import DGCharts
 import CoreGraphics
 import Foundation
 
-final class OverrideFillFormatter: NSObject, FillFormatter {
+final class OverrideFillFormatter: FillFormatter {
     func getFillLinePosition(
         dataSet: LineChartDataSetProtocol,
         dataProvider _: LineChartDataProvider
     ) -> CGFloat {
-        return CGFloat((dataSet.entryForIndex(0)?.y) ?? 0)
+        return CGFloat(dataSet.entryForIndex(0)?.y ?? 0)
     }
 }
 
-final class BasalFillFormatter: NSObject, FillFormatter {
+final class BasalFillFormatter: FillFormatter {
     func getFillLinePosition(
         dataSet _: LineChartDataSetProtocol,
         dataProvider _: LineChartDataProvider
