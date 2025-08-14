@@ -121,7 +121,6 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
 
     // Kjør tab-oppsett kun én gang etter at UI er synlig (hindrer reentrans i viewDidLoad)
     private var didConfigureTabsOnce = false
-    private var didDoDeferredSetup = false
 
 override func viewDidLoad() {
     super.viewDidLoad()
@@ -601,39 +600,54 @@ override func viewDidLoad() {
         }
     }
 
-override func viewDidAppear(_ animated: Bool) {
+@objc override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-
-    // Kjør tab-oppsett én gang etter at UIKit har valgt default VC
-    if !didConfigureTabsOnce {
-        didConfigureTabsOnce = true
-        DispatchQueue.main.async { [weak self] in
-            self?.setupTabBar()
-            self?.updateNightscoutTabState()
-        }
-    }
-
+    configureTabsIfNeeded()
     showHideNSDetails()
 }
-    func stringFromTimeInterval(interval: TimeInterval) -> String {
-        let interval = Int(interval)
-        let minutes = (interval / 60) % 60
-        let hours = (interval / 3600)
-        return String(format: "%02d:%02d", hours, minutes)
+
+func stringFromTimeInterval(interval: TimeInterval) -> String {
+    let interval = Int(interval)
+    let minutes = (interval / 60) % 60
+    let hours = (interval / 3600)
+    return String(format: "%02d:%02d", hours, minutes)
+}
+
+private func updateNightscoutTabState() {
+    guard let tbc = tabBarController,
+          let viewControllers = tbc.viewControllers else { return }
+
+    let isNightscoutEnabled = !Storage.shared.url.value.isEmpty
+
+    for (index, vc) in viewControllers.enumerated() {
+        if vc is NightscoutViewController {
+            tbc.tabBar.items?[index].isEnabled = isNightscoutEnabled
+        }
     }
+}
 
-    private func updateNightscoutTabState() {
-        guard let tabBarController = tabBarController,
-              let viewControllers = tabBarController.viewControllers else { return }
+private func configureTabsIfNeeded() {
+    // Sørg for at vi bare gjør dette én gang
+    if !didConfigureTabsOnce {
+        didConfigureTabsOnce = true
 
-        let isNightscoutEnabled = !Storage.shared.url.value.isEmpty
+        // Aktiver/deaktiver Nightscout-fanen etter URL
+        updateNightscoutTabState()
 
-        for (index, vc) in viewControllers.enumerated() {
-            if vc is NightscoutViewController {
-                tabBarController.tabBar.items?[index].isEnabled = isNightscoutEnabled
+        // Hvis Nightscout er av, sørg for at ev. valgt Nightscout-tab ikke forblir aktiv
+        if !IsNightscoutEnabled(),
+           let tbc = tabBarController,
+           let vcs = tbc.viewControllers,
+           let nsIndex = vcs.firstIndex(where: { $0 is NightscoutViewController }) {
+            tbc.tabBar.items?[nsIndex].isEnabled = false
+
+            // Om Nightscout var valgt, flytt brukeren til første tilgjengelige fane
+            if tbc.selectedIndex == nsIndex {
+                tbc.selectedIndex = 0
             }
         }
     }
+}
 
     func showHideNSDetails() {
         var isHidden = false
