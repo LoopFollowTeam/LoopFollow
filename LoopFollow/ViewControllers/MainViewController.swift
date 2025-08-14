@@ -108,219 +108,222 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     // calendar setup
     let store = EKEventStore()
 
-    // Stores the timestamp of the last BG value that was spoken.
-    var lastSpokenBGDate: TimeInterval = 0
+// Stores the timestamp of the last BG value that was spoken.
+var lastSpokenBGDate: TimeInterval = 0
 
-    var autoScrollPauseUntil: Date? = nil
+var autoScrollPauseUntil: Date? = nil
 
-    var IsNotLooping = false
+var IsNotLooping = false
 
-    let contactImageUpdater = ContactImageUpdater()
+let contactImageUpdater = ContactImageUpdater()
 
-    private var cancellables = Set<AnyCancellable>()
+private var cancellables = Set<AnyCancellable>()
 
-    override func viewDidLoad() {
+override func viewDidLoad() {
     super.viewDidLoad()
-    // TEMP: Deaktivert alt annet for å unngå crash på oppstart.
-    // Vi snevrer inn årsaken etter at appen starter på TF.
-        }
 
-        loadDebugData()
+    // TEMP: Deaktiver alt innhold i viewDidLoad mens vi feilsøker crashen.
+    // Hele den opprinnelige kroppen er kommentert ut under:
+    /*
+    // Synchronize info types to ensure arrays are the correct size
+    synchronizeInfoTypes()
 
-        if Storage.shared.migrationStep.value < 1 {
-            Storage.shared.migrateStep1()
-            Storage.shared.migrationStep.value = 1
-        }
+    infoTable.rowHeight = 21
+    infoTable.dataSource = self
+    infoTable.tableFooterView = UIView(frame: .zero)
+    infoTable.bounces = false
+    infoTable.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
 
-        if Storage.shared.migrationStep.value < 2 {
-            Storage.shared.migrateStep2()
-            Storage.shared.migrationStep.value = 2
-        }
+    infoManager = InfoManager(tableView: infoTable)
 
-        // Synchronize info types to ensure arrays are the correct size
-        synchronizeInfoTypes()
+    smallGraphHeightConstraint.constant = CGFloat(Storage.shared.smallGraphHeight.value)
+    view.layoutIfNeeded()
 
-        infoTable.rowHeight = 21
-        infoTable.dataSource = self
-        infoTable.tableFooterView = UIView(frame: .zero)
-        infoTable.bounces = false
-        infoTable.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
+    let shareUserName = Storage.shared.shareUserName.value
+    let sharePassword = Storage.shared.sharePassword.value
+    let shareServer = Storage.shared.shareServer.value == "US"
+        ? KnownShareServers.US.rawValue
+        : KnownShareServers.NON_US.rawValue
+    dexShare = ShareClient(username: shareUserName, password: sharePassword, shareServer: shareServer)
 
-        infoManager = InfoManager(tableView: infoTable)
+    loadDebugData()
 
-        smallGraphHeightConstraint.constant = CGFloat(Storage.shared.smallGraphHeight.value)
-        view.layoutIfNeeded()
-
-        let shareUserName = Storage.shared.shareUserName.value
-        let sharePassword = Storage.shared.sharePassword.value
-        let shareServer = Storage.shared.shareServer.value == "US" ?KnownShareServers.US.rawValue : KnownShareServers.NON_US.rawValue
-        dexShare = ShareClient(username: shareUserName, password: sharePassword, shareServer: shareServer)
-
-        // setup show/hide small graph and stats
-        BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
-        statsView.isHidden = !Storage.shared.showStats.value
-
-        BGChart.delegate = self
-        BGChartFull.delegate = self
-
-        if Storage.shared.forceDarkMode.value {
-            overrideUserInterfaceStyle = .dark
-            tabBarController?.overrideUserInterfaceStyle = .dark
-        }
-
-        // Trigger foreground and background functions
-        let notificationCenter = NotificationCenter.default
-        notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        notificationCenter.addObserver(self, selector: #selector(appCameToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-
-        // Setup the Graph
-        if firstGraphLoad {
-            createGraph()
-            createSmallBGGraph()
-        }
-
-        // setup display for NS vs Dex
-        showHideNSDetails()
-
-        scheduleAllTasks()
-
-        // Set up refreshScrollView for BGText
-        refreshScrollView = UIScrollView()
-        refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
-        refreshScrollView.alwaysBounceVertical = true
-        view.addSubview(refreshScrollView)
-
-        NSLayoutConstraint.activate([
-            refreshScrollView.leadingAnchor.constraint(equalTo: BGText.leadingAnchor),
-            refreshScrollView.trailingAnchor.constraint(equalTo: BGText.trailingAnchor),
-            refreshScrollView.topAnchor.constraint(equalTo: BGText.topAnchor),
-            refreshScrollView.bottomAnchor.constraint(equalTo: BGText.bottomAnchor),
-        ])
-
-        refreshControl = UIRefreshControl()
-        refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
-        refreshScrollView.addSubview(refreshControl)
-
-        // Add this line to prevent scrolling in other directions
-        refreshScrollView.alwaysBounceVertical = true
-
-        refreshScrollView.delegate = self
-        NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: NSNotification.Name("refresh"), object: nil)
-
-        Observable.shared.bgText.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] newValue in
-                self?.BGText.text = newValue
-            }
-            .store(in: &cancellables)
-
-        Observable.shared.directionText.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] newValue in
-                self?.DirectionText.text = newValue
-            }
-            .store(in: &cancellables)
-
-        Observable.shared.deltaText.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] newValue in
-                self?.DeltaText.text = newValue
-            }
-            .store(in: &cancellables)
-
-        /// When an alarm is triggered, go to the snoozer tab
-        Observable.shared.currentAlarm.$value
-            .receive(on: DispatchQueue.main)
-            .compactMap { $0 }
-            .sink { [weak self] _ in
-                if let snoozerIndex = self?.getSnoozerTabIndex() {
-                    self?.tabBarController?.selectedIndex = snoozerIndex
-                }
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.colorBGText.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.setBGTextColor()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.showStats.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.statsView.isHidden = !Storage.shared.showStats.value
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.useIFCC.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateStats()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.showSmallGraph.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.screenlockSwitchState.$value
-            .receive(on: DispatchQueue.main)
-            .sink { newValue in
-                UIApplication.shared.isIdleTimerDisabled = newValue
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.showDisplayName.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateServerText()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.speakBG.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateQuickActions()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.alarmsPosition.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.setupTabBar()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.remotePosition.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.setupTabBar()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.nightscoutPosition.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.setupTabBar()
-            }
-            .store(in: &cancellables)
-
-        Storage.shared.url.$value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.updateNightscoutTabState()
-            }
-            .store(in: &cancellables)
-
-        updateQuickActions()
-        setupTabBar()
-
-        speechSynthesizer.delegate = self
+    if Storage.shared.migrationStep.value < 1 {
+        Storage.shared.migrateStep1()
+        Storage.shared.migrationStep.value = 1
     }
+
+    if Storage.shared.migrationStep.value < 2 {
+        Storage.shared.migrateStep2()
+        Storage.shared.migrationStep.value = 2
+    }
+
+    // setup show/hide small graph and stats
+    BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
+    statsView.isHidden = !Storage.shared.showStats.value
+
+    BGChart.delegate = self
+    BGChartFull.delegate = self
+
+    if Storage.shared.forceDarkMode.value {
+        overrideUserInterfaceStyle = .dark
+        tabBarController?.overrideUserInterfaceStyle = .dark
+    }
+
+    // Trigger foreground and background functions
+    let notificationCenter = NotificationCenter.default
+    notificationCenter.addObserver(self, selector: #selector(appMovedToBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+    notificationCenter.addObserver(self, selector: #selector(appCameToForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+
+    // Setup the Graph
+    if firstGraphLoad {
+        createGraph()
+        createSmallBGGraph()
+    }
+
+    // setup display for NS vs Dex
+    showHideNSDetails()
+
+    scheduleAllTasks()
+
+    // Set up refreshScrollView for BGText
+    refreshScrollView = UIScrollView()
+    refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
+    refreshScrollView.alwaysBounceVertical = true
+    view.addSubview(refreshScrollView)
+
+    NSLayoutConstraint.activate([
+        refreshScrollView.leadingAnchor.constraint(equalTo: BGText.leadingAnchor),
+        refreshScrollView.trailingAnchor.constraint(equalTo: BGText.trailingAnchor),
+        refreshScrollView.topAnchor.constraint(equalTo: BGText.topAnchor),
+        refreshScrollView.bottomAnchor.constraint(equalTo: BGText.bottomAnchor),
+    ])
+
+    refreshControl = UIRefreshControl()
+    refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
+    refreshScrollView.addSubview(refreshControl)
+
+    // Add this line to prevent scrolling in other directions
+    refreshScrollView.alwaysBounceVertical = true
+
+    refreshScrollView.delegate = self
+    NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: NSNotification.Name("refresh"), object: nil)
+
+    Observable.shared.bgText.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] newValue in
+            self?.BGText.text = newValue
+        }
+        .store(in: &cancellables)
+
+    Observable.shared.directionText.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] newValue in
+            self?.DirectionText.text = newValue
+        }
+        .store(in: &cancellables)
+
+    Observable.shared.deltaText.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] newValue in
+            self?.DeltaText.text = newValue
+        }
+        .store(in: &cancellables)
+
+    /// When an alarm is triggered, go to the snoozer tab
+    Observable.shared.currentAlarm.$value
+        .receive(on: DispatchQueue.main)
+        .compactMap { $0 }
+        .sink { [weak self] _ in
+            if let snoozerIndex = self?.getSnoozerTabIndex() {
+                self?.tabBarController?.selectedIndex = snoozerIndex
+            }
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.colorBGText.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.setBGTextColor()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.showStats.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.statsView.isHidden = !Storage.shared.showStats.value
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.useIFCC.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.updateStats()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.showSmallGraph.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.screenlockSwitchState.$value
+        .receive(on: DispatchQueue.main)
+        .sink { newValue in
+            UIApplication.shared.isIdleTimerDisabled = newValue
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.showDisplayName.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.updateServerText()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.speakBG.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.updateQuickActions()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.alarmsPosition.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.setupTabBar()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.remotePosition.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.setupTabBar()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.nightscoutPosition.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.setupTabBar()
+        }
+        .store(in: &cancellables)
+
+    Storage.shared.url.$value
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _ in
+            self?.updateNightscoutTabState()
+        }
+        .store(in: &cancellables)
+
+    updateQuickActions()
+    setupTabBar()
+
+    speechSynthesizer.delegate = self
+    */
+}
 
     private func setupTabBar() {
         guard let tabBarController = tabBarController else { return }
