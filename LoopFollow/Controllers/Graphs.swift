@@ -302,7 +302,7 @@ extension MainViewController {
         lineBasal.axisDependency = YAxis.AxisDependency.left
         lineBasal.highlightEnabled = true
         lineBasal.drawValuesEnabled = false
-        lineBasal.fillFormatter = basalFillFormatter()
+        lineBasal.fillFormatter = BasalFillFormatter()
 
         // Boluses
         let chartEntryBolus = [ChartDataEntry]()
@@ -1358,7 +1358,7 @@ extension MainViewController {
         lineBasal.axisDependency = YAxis.AxisDependency.left
         lineBasal.highlightEnabled = false
         lineBasal.drawValuesEnabled = false
-        lineBasal.fillFormatter = basalFillFormatter()
+        lineBasal.fillFormatter = BasalFillFormatter()
 
         // Boluses
         var chartEntryBolus = [ChartDataEntry]()
