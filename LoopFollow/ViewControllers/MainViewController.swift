@@ -108,16 +108,19 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
     // calendar setup
     let store = EKEventStore()
 
-// Stores the timestamp of the last BG value that was spoken.
-var lastSpokenBGDate: TimeInterval = 0
+    // Stores the timestamp of the last BG value that was spoken.
+    var lastSpokenBGDate: TimeInterval = 0
 
-var autoScrollPauseUntil: Date? = nil
+    var autoScrollPauseUntil: Date? = nil
 
-var IsNotLooping = false
+    var IsNotLooping = false
 
-let contactImageUpdater = ContactImageUpdater()
+    let contactImageUpdater = ContactImageUpdater()
 
-private var cancellables = Set<AnyCancellable>()
+    private var cancellables = Set<AnyCancellable>()
+
+    // Kjør tab-oppsett kun én gang etter at UI er synlig (hindrer reentrans i viewDidLoad)
+    private var didConfigureTabsOnce = false
 
 override func viewDidLoad() {
     super.viewDidLoad()
