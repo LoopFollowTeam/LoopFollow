@@ -1,23 +1,24 @@
-// LoopFollow
-// Chart.swift
-// Created by Jon Fawcett.
-
 import DGCharts
-import UIKit // evt. CoreGraphics
+import CoreGraphics
+import Foundation
 
-final class OverrideFillFormatter: FillFormatter {
-    func getFillLinePosition(dataSet: LineChartDataSetProtocol,
-                             dataProvider _: LineChartDataProvider) -> CGFloat {
-        return CGFloat(dataSet.entryForIndex(0)!.y)
+final class OverrideFillFormatter: NSObject, FillFormatter {
+    func getFillLinePosition(
+        dataSet: LineChartDataSetProtocol,
+        dataProvider _: LineChartDataProvider
+    ) -> CGFloat {
+        return CGFloat((dataSet.entryForIndex(0)?.y) ?? 0)
     }
 }
 
-final class basalFillFormatter: FillFormatter {
-    func getFillLinePosition(dataSet _: Charts.LineChartDataSetProtocol, dataProvider _: Charts.LineChartDataProvider) -> CGFloat {
+final class BasalFillFormatter: NSObject, FillFormatter {
+    func getFillLinePosition(
+        dataSet _: LineChartDataSetProtocol,
+        dataProvider _: LineChartDataProvider
+    ) -> CGFloat {
         return 0
     }
 }
-
 final class ChartXValueFormatter: AxisValueFormatter {
     func stringForValue(_ value: Double, axis _: AxisBase?) -> String {
         let dateFormatter = DateFormatter()
