@@ -134,20 +134,22 @@ override func viewDidLoad() {
         isDebug: true
     )
 
-    // --- Tabell/infovisning ---
-    synchronizeInfoTypes()
-    if let table = infoTable {
-        table.dataSource = self
-        table.rowHeight = 21
-        table.tableFooterView = UIView(frame: .zero)
-        table.bounces = false
-        // table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
+// --- Tabell/infovisning ---
+synchronizeInfoTypes()
+if let table = infoTable {
+    table.dataSource = self
+    table.rowHeight = 21
+    table.tableFooterView = UIView(frame: .zero)
+    table.bounces = false
+    // table.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
 
-        // Viktig: opprett infoManager her slik at andre steder i koden kan bruke den uten optional-feil
+    // Viktig: opprett infoManager her så den ikke er nil når andre deler bruker den
+    if infoManager == nil {
         infoManager = InfoManager(tableView: table)
-    } else {
-        LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
     }
+} else {
+    LogManager.shared.log(category: .general, message: "infoTable outlet is nil in viewDidLoad", isDebug: true)
+}
 
     // --- Layout ---
     smallGraphHeightConstraint?.constant = CGFloat(Storage.shared.smallGraphHeight.value)
@@ -312,7 +314,7 @@ override func viewDidLoad() {
 override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
 
-    // Opprett dyre/avhengige ting første gang
+    // Opprett Dexcom Share-klient første gang
     if dexShare == nil {
         let shareUserName = Storage.shared.shareUserName.value
         let sharePassword = Storage.shared.sharePassword.value
@@ -320,11 +322,6 @@ override func viewDidAppear(_ animated: Bool) {
             ? KnownShareServers.US.rawValue
             : KnownShareServers.NON_US.rawValue
         dexShare = ShareClient(username: shareUserName, password: sharePassword, shareServer: shareServer)
-    }
-
-    if infoManager == nil, let table = infoTable {
-        infoManager = InfoManager(tableView: table)
-        table.reloadData()
     }
 
     guard !didRunInitialUIOnce else { return }
