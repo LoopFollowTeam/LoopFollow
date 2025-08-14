@@ -2,135 +2,131 @@
 // Chart.swift
 
 import DGCharts
+import UIKit
 import CoreGraphics
 import Foundation
 
-final class OverrideFillFormatter: FillFormatter {
-    func getFillLinePosition(
+@objc(OverrideFillFormatter)
+public final class OverrideFillFormatter: NSObject, FillFormatter {
+    public func getFillLinePosition(
         dataSet: LineChartDataSetProtocol,
-        dataProvider _: LineChartDataProvider
+        dataProvider: LineChartDataProvider
     ) -> CGFloat {
-        return CGFloat(dataSet.entryForIndex(0)?.y ?? 0)
+        CGFloat(dataSet.entryForIndex(0)?.y ?? 0)
     }
 }
 
-final class BasalFillFormatter: FillFormatter {
-    func getFillLinePosition(
-        dataSet _: LineChartDataSetProtocol,
-        dataProvider _: LineChartDataProvider
-    ) -> CGFloat {
-        return 0
-    }
+@objc(BasalFillFormatter)
+public final class BasalFillFormatter: NSObject, FillFormatter {
+    public func getFillLinePosition(
+        dataSet: LineChartDataSetProtocol,
+        dataProvider: LineChartDataProvider
+    ) -> CGFloat { 0 }
 }
-final class ChartXValueFormatter: AxisValueFormatter {
-    func stringForValue(_ value: Double, axis _: AxisBase?) -> String {
-        let dateFormatter = DateFormatter()
-        // let timezoneOffset = TimeZone.current.secondsFromGMT()
-        // let epochTimezoneOffset = value + Double(timezoneOffset)
+
+@objc(ChartXValueFormatter)
+public final class ChartXValueFormatter: NSObject, AxisValueFormatter {
+    public func stringForValue(_ value: Double, axis: AxisBase?) -> String {
+        let df = DateFormatter()
         if dateTimeUtils.is24Hour() {
-            dateFormatter.setLocalizedDateFormatFromTemplate("HH:mm")
+            df.setLocalizedDateFormatFromTemplate("HH:mm")
         } else {
-            dateFormatter.setLocalizedDateFormatFromTemplate("hh:mm")
+            df.setLocalizedDateFormatFromTemplate("hh:mm")
         }
-
-        // let date = Date(timeIntervalSince1970: epochTimezoneOffset)
-        let date = Date(timeIntervalSince1970: value)
-        let formattedDate = dateFormatter.string(from: date)
-
-        return formattedDate
+        return df.string(from: Date(timeIntervalSince1970: value))
     }
 }
 
-final class ChartYDataValueFormatter: ValueFormatter {
-    func stringForValue(_: Double, entry: ChartDataEntry, dataSetIndex _: Int, viewPortHandler _: ViewPortHandler?) -> String {
-        if entry.data != nil {
-            return entry.data as? String ?? ""
-        } else {
-            return ""
-        }
+@objc(ChartYDataValueFormatter)
+public final class ChartYDataValueFormatter: NSObject, ValueFormatter {
+    public func stringForValue(
+        _ value: Double,
+        entry: ChartDataEntry,
+        dataSetIndex: Int,
+        viewPortHandler: ViewPortHandler?
+    ) -> String {
+        if let s = entry.data as? String { return s }
+        return ""
     }
 }
 
-final class ChartYOverrideValueFormatter: ValueFormatter {
-    func stringForValue(_: Double, entry: ChartDataEntry, dataSetIndex _: Int, viewPortHandler _: ViewPortHandler?) -> String {
-        if entry.data != nil {
-            return entry.data as? String ?? ""
-        } else {
-            return ""
-        }
+@objc(ChartYOverrideValueFormatter)
+public final class ChartYOverrideValueFormatter: NSObject, ValueFormatter {
+    public func stringForValue(
+        _ value: Double,
+        entry: ChartDataEntry,
+        dataSetIndex: Int,
+        viewPortHandler: ViewPortHandler?
+    ) -> String {
+        if let s = entry.data as? String { return s }
+        return ""
     }
 }
 
-final class ChartYMMOLValueFormatter: AxisValueFormatter {
-    func stringForValue(_ value: Double, axis _: AxisBase?) -> String {
-        return Localizer.toDisplayUnits(String(value))
+@objc(ChartYMMOLValueFormatter)
+public final class ChartYMMOLValueFormatter: NSObject, AxisValueFormatter {
+    public func stringForValue(_ value: Double, axis: AxisBase?) -> String {
+        Localizer.toDisplayUnits(String(value))
     }
 }
 
-class PillMarker: MarkerImage {
+public final class PillMarker: MarkerImage {
     private(set) var color: UIColor
     private(set) var font: UIFont
     private(set) var textColor: UIColor
     private var labelText: String = ""
-    private var attrs: [NSAttributedString.Key: AnyObject]!
+    private var attrs: [NSAttributedString.Key: Any]
 
-    static let formatter: DateComponentsFormatter = {
+    public static let formatter: DateComponentsFormatter = {
         let f = DateComponentsFormatter()
         f.allowedUnits = [.minute, .second]
         f.unitsStyle = .short
         return f
     }()
 
-    init(color: UIColor, font: UIFont, textColor: UIColor) {
+    public init(color: UIColor, font: UIFont, textColor: UIColor) {
         self.color = color
         self.font = font
         self.textColor = textColor
-
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.alignment = .center
-        attrs = [.font: font, .paragraphStyle: paragraphStyle, .foregroundColor: textColor, .baselineOffset: NSNumber(value: -4)]
+        self.attrs = [
+            .font: font,
+            .paragraphStyle: paragraphStyle,
+            .foregroundColor: textColor,
+            .baselineOffset: NSNumber(value: -4)
+        ]
         super.init()
     }
 
-    override func draw(context: CGContext, point: CGPoint) {
-        // custom padding around text
-        let labelWidth = labelText.size(withAttributes: attrs).width + 10
-        // if you modify labelHeigh you will have to tweak baselineOffset in attrs
-        let labelHeight = labelText.size(withAttributes: attrs).height + 4
+    public override func draw(context: CGContext, point: CGPoint) {
+        let labelSize = (labelText as NSString).size(withAttributes: attrs)
+        let labelWidth = labelSize.width + 10
+        let labelHeight = labelSize.height + 4
 
-        // place pill above the marker, centered along x
-        var rectangle = CGRect(x: point.x, y: point.y, width: labelWidth, height: labelHeight)
-        rectangle.origin.x -= rectangle.width / 2.0
+        var rect = CGRect(x: point.x - labelWidth / 2.0, y: point.y, width: labelWidth, height: labelHeight)
         var spacing: CGFloat = 20
         if point.y < 300 { spacing = -40 }
+        rect.origin.y -= rect.height + spacing
 
-        rectangle.origin.y -= rectangle.height + spacing
-
-        // rounded rect
-        let clipPath = UIBezierPath(roundedRect: rectangle, cornerRadius: 6.0).cgPath
-        context.addPath(clipPath)
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: 6).cgPath
+        context.addPath(path)
         context.setFillColor(UIColor.secondarySystemBackground.cgColor)
         context.setStrokeColor(UIColor.label.cgColor)
-        context.closePath()
         context.drawPath(using: .fillStroke)
 
-        // add the text
-        labelText.draw(with: rectangle, options: .usesLineFragmentOrigin, attributes: attrs, context: nil)
+        (labelText as NSString).draw(with: rect, options: .usesLineFragmentOrigin, attributes: attrs, context: nil)
     }
 
-    override func refreshContent(entry: ChartDataEntry, highlight _: Highlight) {
-        if entry.data != nil {
-            // var multiplier = entry.data as! Double * 100.0
-            // labelText = String(format: "%.0f%%", multiplier)
-            labelText = entry.data as? String ?? ""
+    public override func refreshContent(entry: ChartDataEntry, highlight: Highlight) {
+        if let s = entry.data as? String {
+            labelText = s
         } else {
             labelText = String(entry.y)
         }
     }
 
     private func customString(_ value: Double) -> String {
-        let formattedString = PillMarker.formatter.string(from: TimeInterval(value))!
-        // using this to convert the left axis values formatting, ie 2 min
-        return "\(formattedString)"
+        PillMarker.formatter.string(from: TimeInterval(value)) ?? ""
     }
 }
