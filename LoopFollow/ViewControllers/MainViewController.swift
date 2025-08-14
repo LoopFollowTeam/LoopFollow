@@ -145,18 +145,15 @@ override func viewDidLoad() {
     // --- Migreringer (idempotent) ---
     loadDebugData()
     if Storage.shared.migrationStep.value < 1 {
-        Storage.shared.migrateStep1()
-        Storage.shared.migrationStep.value = 1
+        Storage.shared.migrateStep1(); Storage.shared.migrationStep.value = 1
     }
     if Storage.shared.migrationStep.value < 2 {
-        Storage.shared.migrateStep2()
-        Storage.shared.migrationStep.value = 2
+        Storage.shared.migrateStep2(); Storage.shared.migrationStep.value = 2
     }
 
     // --- Grunnleggende UI-tilstand ---
     BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
     statsView.isHidden   = !Storage.shared.showStats.value
-
     BGChart.delegate     = self
     BGChartFull.delegate = self
 
@@ -167,16 +164,12 @@ override func viewDidLoad() {
 
     // --- Foreground/Background hooks ---
     let notificationCenter = NotificationCenter.default
-    notificationCenter.addObserver(self,
-                                   selector: #selector(appMovedToBackground),
-                                   name: UIApplication.didEnterBackgroundNotification,
-                                   object: nil)
-    notificationCenter.addObserver(self,
-                                   selector: #selector(appCameToForeground),
-                                   name: UIApplication.willEnterForegroundNotification,
-                                   object: nil)
+    notificationCenter.addObserver(self, selector: #selector(appMovedToBackground),
+                                   name: UIApplication.didEnterBackgroundNotification, object: nil)
+    notificationCenter.addObserver(self, selector: #selector(appCameToForeground),
+                                   name: UIApplication.willEnterForegroundNotification, object: nil)
 
-    // --- Grafer (marker-koder er allerede slått av i Graphs.swift) ---
+    // --- Grafer ---
     if firstGraphLoad {
         createGraph()
         createSmallBGGraph()
@@ -191,22 +184,18 @@ override func viewDidLoad() {
     refreshScrollView.translatesAutoresizingMaskIntoConstraints = false
     refreshScrollView.alwaysBounceVertical = true
     view.addSubview(refreshScrollView)
-
     NSLayoutConstraint.activate([
         refreshScrollView.leadingAnchor.constraint(equalTo: BGText.leadingAnchor),
         refreshScrollView.trailingAnchor.constraint(equalTo: BGText.trailingAnchor),
         refreshScrollView.topAnchor.constraint(equalTo: BGText.topAnchor),
         refreshScrollView.bottomAnchor.constraint(equalTo: BGText.bottomAnchor),
     ])
-
     refreshControl = UIRefreshControl()
     refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
     refreshScrollView.addSubview(refreshControl)
     refreshScrollView.delegate = self
-    NotificationCenter.default.addObserver(self,
-                                           selector: #selector(refresh),
-                                           name: NSNotification.Name("refresh"),
-                                           object: nil)
+    NotificationCenter.default.addObserver(self, selector: #selector(refresh),
+                                           name: NSNotification.Name("refresh"), object: nil)
 
     // --- Bind observables til labels ---
     Observable.shared.bgText.$value
@@ -277,7 +266,11 @@ override func viewDidLoad() {
             Storage.shared.nightscoutPosition.$value.eraseToAnyPublisher()
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in self?.setupTabBar() }
+        .sink { [weak self] _ in
+            // Ikke rør tabs før etter første skjermvisning
+            guard let self = self, self.didConfigureTabsOnce else { return }
+            self.setupTabBar()
+        }
         .store(in: &cancellables)
 
     Storage.shared.url.$value
@@ -287,13 +280,11 @@ override func viewDidLoad() {
 
     // --- Diverse ---
     updateQuickActions()
-    setupTabBar()
     speechSynthesizer.delegate = self
 
     // Hent første gang
     refresh()
 }
-
     private func setupTabBar() {
         guard let tabBarController = tabBarController else { return }
 
@@ -430,22 +421,26 @@ override func viewDidLoad() {
     }
 
     // Clean all timers and start new ones when refreshing
-    @objc func refresh() {
-        LogManager.shared.log(category: .general, message: "Refreshing")
+@objc func refresh() {
+    LogManager.shared.log(category: .general, message: "Refreshing")
 
-        // Clear prediction for both Loop or OpenAPS
+    // Tøm prediksjon på en trygg måte
+    if !predictionData.isEmpty {
+        predictionData.removeAll()
+        updatePredictionGraph()
+    }
 
-        // Check if Loop prediction data exists and clear it if necessary
-        if !predictionData.isEmpty {
-            predictionData.removeAll()
-            updatePredictionGraph()
-        }
-
-        // Check if OpenAPS prediction data exists and clear it if necessary
-        let openAPSDataIndices = [12, 13, 14, 15]
+    // Unngå force-unwrap og out-of-bounds tidlig i oppstart
+    let openAPSDataIndices = [12, 13, 14, 15]
+    if let mainLineData = BGChart?.lineData,
+       let smallLineData = BGChartFull?.lineData {
         for dataIndex in openAPSDataIndices {
-            let mainChart = BGChart.lineData!.dataSets[dataIndex] as! LineChartDataSet
-            let smallChart = BGChartFull.lineData!.dataSets[dataIndex] as! LineChartDataSet
+            guard dataIndex < mainLineData.dataSets.count,
+                  dataIndex < smallLineData.dataSets.count,
+                  let mainChart = mainLineData.dataSets[dataIndex] as? LineChartDataSet,
+                  let smallChart = smallLineData.dataSets[dataIndex] as? LineChartDataSet
+            else { continue }
+
             if !mainChart.entries.isEmpty || !smallChart.entries.isEmpty {
                 updatePredictionGraphGeneric(
                     dataIndex: dataIndex,
@@ -455,16 +450,17 @@ override func viewDidLoad() {
                 )
             }
         }
-
-        MinAgoText.text = "Refreshing"
-        Observable.shared.minAgoText.value = "Refreshing"
-        scheduleAllTasks()
-
-        currentCage = nil
-        currentSage = nil
-        currentIage = nil
-        refreshControl.endRefreshing()
     }
+
+    MinAgoText.text = "Refreshing"
+    Observable.shared.minAgoText.value = "Refreshing"
+    scheduleAllTasks()
+
+    currentCage = nil
+    currentSage = nil
+    currentIage = nil
+    refreshControl?.endRefreshing()
+}
 
     // Scroll down BGText when refreshing
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -600,10 +596,20 @@ override func viewDidLoad() {
         }
     }
 
-    @objc override func viewDidAppear(_: Bool) {
-        showHideNSDetails()
+override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
+
+    // Kjør tab-oppsett én gang etter at UIKit har valgt default VC
+    if !didConfigureTabsOnce {
+        didConfigureTabsOnce = true
+        DispatchQueue.main.async { [weak self] in
+            self?.setupTabBar()
+            self?.updateNightscoutTabState()
+        }
     }
 
+    showHideNSDetails()
+}
     func stringFromTimeInterval(interval: TimeInterval) -> String {
         let interval = Int(interval)
         let minutes = (interval / 60) % 60
