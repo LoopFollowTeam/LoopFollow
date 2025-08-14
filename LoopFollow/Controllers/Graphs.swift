@@ -2,11 +2,11 @@
 // Graphs.swift
 // Created by Jon Fawcett.
 
-import Charts
+import DGCharts
 import Foundation
 import UIKit
 
-import Charts
+import DGCharts
 
 enum GraphDataIndex: Int {
     case bg = 0
