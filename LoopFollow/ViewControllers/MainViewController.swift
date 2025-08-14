@@ -3,7 +3,7 @@
 // Created by Jon Fawcett.
 
 import AVFAudio
-import Charts
+import DGCharts
 import Combine
 import CoreBluetooth
 import EventKit
