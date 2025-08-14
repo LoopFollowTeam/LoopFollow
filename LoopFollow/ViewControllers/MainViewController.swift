@@ -898,11 +898,9 @@ private func configureTabsIfNeeded() {
             // print("Trimmed visibleArray to match current valid indices")
         }
 
-        Storage.shared.infoSort.value = sortArray
-        Storage.shared.infoVisible.value = visibleArray
-    }
+Storage.shared.infoSort.value = sortArray
+Storage.shared.infoVisible.value = visibleArray
 }
-
 extension MainViewController: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
         let appState = UIApplication.shared.applicationState
