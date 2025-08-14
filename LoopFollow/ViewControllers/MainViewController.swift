@@ -121,19 +121,21 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
 
     // Kjør tab-oppsett kun én gang etter at UI er synlig (hindrer reentrans i viewDidLoad)
     private var didConfigureTabsOnce = false
+    private var didDoDeferredSetup = false
 
 override func viewDidLoad() {
     super.viewDidLoad()
 
     // --- Tabell/infovisning ---
     synchronizeInfoTypes()
-    infoTable.rowHeight = 21
     infoTable.dataSource = self
+    infoTable.rowHeight = 21
     infoTable.tableFooterView = UIView(frame: .zero)
     infoTable.bounces = false
     infoTable.addBorder(toSide: .Left, withColor: UIColor.darkGray.cgColor, andThickness: 2)
     infoManager = InfoManager(tableView: infoTable)
 
+    // --- Layout ---
     smallGraphHeightConstraint.constant = CGFloat(Storage.shared.smallGraphHeight.value)
     view.layoutIfNeeded()
 
@@ -148,36 +150,36 @@ override func viewDidLoad() {
     // --- Migreringer (idempotent) ---
     loadDebugData()
     if Storage.shared.migrationStep.value < 1 {
-        Storage.shared.migrateStep1(); Storage.shared.migrationStep.value = 1
+        Storage.shared.migrateStep1()
+        Storage.shared.migrationStep.value = 1
     }
     if Storage.shared.migrationStep.value < 2 {
-        Storage.shared.migrateStep2(); Storage.shared.migrationStep.value = 2
+        Storage.shared.migrateStep2()
+        Storage.shared.migrationStep.value = 2
     }
 
     // --- Grunnleggende UI-tilstand ---
-    BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
-    statsView.isHidden   = !Storage.shared.showStats.value
     BGChart.delegate     = self
     BGChartFull.delegate = self
+    BGChartFull.isHidden = !Storage.shared.showSmallGraph.value
+    statsView.isHidden   = !Storage.shared.showStats.value
 
     if Storage.shared.forceDarkMode.value {
         overrideUserInterfaceStyle = .dark
         tabBarController?.overrideUserInterfaceStyle = .dark
     }
 
-    // --- Foreground/Background hooks ---
-    let notificationCenter = NotificationCenter.default
-    notificationCenter.addObserver(self, selector: #selector(appMovedToBackground),
-                                   name: UIApplication.didEnterBackgroundNotification, object: nil)
-    notificationCenter.addObserver(self, selector: #selector(appCameToForeground),
-                                   name: UIApplication.willEnterForegroundNotification, object: nil)
+    // --- Lifecycle hooks / oppfrisking ---
+    NotificationCenter.default.addObserver(
+        self,
+        selector: #selector(refresh),
+        name: UIApplication.didBecomeActiveNotification,
+        object: nil
+    )
 
-    // --- Grafer ---
-    if firstGraphLoad {
-        createGraph()
-        createSmallBGGraph()
-    }
+    // Start med korrekt vis/skjul-tilstand
     showHideNSDetails()
+}
 
     // --- Start periodiske jobber ---
     scheduleAllTasks()
