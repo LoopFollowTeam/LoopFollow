@@ -196,6 +196,7 @@ override func viewDidLoad() {
     if !didScheduleTasksOnce {
         didScheduleTasksOnce = true
         scheduleAllTasks()
+    }
 
     // --- TTS ---
     speechSynthesizer.delegate = self
@@ -224,13 +225,8 @@ override func viewDidLoad() {
     refreshControl.addTarget(self, action: #selector(refresh), for: .valueChanged)
     refreshScrollView.addSubview(refreshControl)
     refreshScrollView.delegate = self
-
-    NotificationCenter.default.addObserver(
-        self,
-        selector: #selector(refresh),
-        name: NSNotification.Name("refresh"),
-        object: nil
-    )
+    NotificationCenter.default.addObserver(self, selector: #selector(refresh),
+                                           name: NSNotification.Name("refresh"), object: nil)
 
     // --- Bind observables til labels ---
     Observable.shared.bgText.$value
@@ -314,8 +310,7 @@ override func viewDidLoad() {
 
     // --- Diverse ---
     updateQuickActions()
-
-    // Viktig: ikke kall showHideNSDetails()/refresh() her – de kjøres i viewDidAppear første gang.
+    // Ikke kall showHideNSDetails()/refresh() her – de kjøres i viewDidAppear første gang.
 }
 
 override func viewDidAppear(_ animated: Bool) {
