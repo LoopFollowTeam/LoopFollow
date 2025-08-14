@@ -119,10 +119,10 @@ class MainViewController: UIViewController, UITableViewDataSource, ChartViewDele
 
     private var cancellables = Set<AnyCancellable>()
 
-    // Kjør tab-oppsett kun én gang etter at UI er synlig (hindrer reentrans i viewDidLoad)
-    private var didConfigureTabsOnce = false
-
-private var didRunInitialUIOnce = false
+// MARK: - One-time guards
+private var didConfigureTabsOnce = false
+private var didRunInitialUIOnce  = false
+private var didScheduleTasksOnce = false
 
 override func viewDidLoad() {
     super.viewDidLoad()
@@ -176,6 +176,9 @@ override func viewDidLoad() {
     BGChartFull?.isHidden = !Storage.shared.showSmallGraph.value
     statsView?.isHidden   = !Storage.shared.showStats.value
 
+    // startverdier som ellers oppdateres via sinks
+    UIApplication.shared.isIdleTimerDisabled = Storage.shared.screenlockSwitchState.value
+
     if Storage.shared.forceDarkMode.value {
         overrideUserInterfaceStyle = .dark
         tabBarController?.overrideUserInterfaceStyle = .dark
@@ -189,8 +192,17 @@ override func viewDidLoad() {
         object: nil
     )
 
-    // --- Start periodiske jobber ---
-    scheduleAllTasks()
+    // --- Start periodiske jobber (kun én gang per instans) ---
+    if !didScheduleTasksOnce {
+        didScheduleTasksOnce = true
+        scheduleAllTasks()
+    }
+
+    // Viktig: ikke kall showHideNSDetails()/refresh() her – de kjøres i viewDidAppear første gang.
+}
+
+// --- TTS ---
+speechSynthesizer.delegate = self
 
     // --- Pull-to-refresh rundt BGText ---
     if let bgLabel = BGText {
@@ -307,11 +319,11 @@ override func viewDidLoad() {
 
 override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
-    if !didRunInitialUIOnce {
-        didRunInitialUIOnce = true
-        showHideNSDetails()
-        refresh()
-    }
+    guard !didRunInitialUIOnce else { return }
+    didRunInitialUIOnce = true
+    configureTabsIfNeeded()
+    showHideNSDetails()
+    refresh()
 }
     private func setupTabBar() {
         guard let tabBarController = tabBarController else { return }
@@ -623,12 +635,6 @@ override func viewDidAppear(_ animated: Bool) {
             self.present(alert, animated: true)
         }
     }
-
-@objc override func viewDidAppear(_ animated: Bool) {
-    super.viewDidAppear(animated)
-    configureTabsIfNeeded()
-    showHideNSDetails()
-}
 
 func stringFromTimeInterval(interval: TimeInterval) -> String {
     let interval = Int(interval)
